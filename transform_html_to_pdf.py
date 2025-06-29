@@ -4,8 +4,6 @@ Você pode transformar um arquivo HTML em PDF em Python utilizando a biblioteca 
 ✅ Passos para usar:
 Instale o pdfkit e o wkhtmltopdf.
 
-pip install pdfkit
-
 No Windows, Linux ou macOS, você também precisa instalar o wkhtmltopdf:
 
 Windows: https://wkhtmltopdf.org/downloads.html
@@ -20,15 +18,17 @@ Use o script para converter o HTML em PDF.
 
 import pdfkit
 
-# Caminho para o wkhtmltopdf (use apenas se necessário)
-# path_wkhtmltopdf = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
-# config = pdfkit.configuration(wkhtmltopdf=path_wkhtmltopdf)
+html_file = '/home/michel/Documentos/create_doc_dit/html/d_empresas_farol - Databricks.html'
+output_pdf = '/home/michel/Documentos/create_doc_dit/pdf/d_empresas_farol.pdf'
 
-# Caminho do arquivo HTML e PDF
-html_file = 'C:\Users\MichelSouzaSantana\OneDrive - Dataside\Documentos\create_doc_dit\html\d_empresas_farol.html'
-output_pdf = 'C:\Users\MichelSouzaSantana\OneDrive - Dataside\Documentos\create_doc_dit\pdf\d_empresas_farol.pdf'
+options = {
+    'enable-local-file-access': None,
+    'no-stop-slow-scripts': None,
+    'load-error-handling': 'ignore',
+    'debug-javascript': None
+}
 
-# Convertendo (adicione `configuration=config` se necessário)
-pdfkit.from_file(html_file, output_pdf)
+pdfkit.from_file(html_file, output_pdf, options=options)
 
 print(f"PDF gerado com sucesso em: {output_pdf}")
+
