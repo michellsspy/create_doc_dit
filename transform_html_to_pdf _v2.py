@@ -1,90 +1,116 @@
 """
-✅ Opções para converter .py em PDF:
-✅ **1. Usar pygments para gerar um PDF com sintaxe colorida (recomendado)
-
-pip install pygments
+✅ Conversão de arquivos .py (ou .ipynb convertidos) para PDF com destaque de sintaxe usando pygments + WeasyPrint.
 """
 
+import os
+import platform
+import subprocess
+import ctypes.util
+from pathlib import Path
 from pygments import highlight
 from pygments.lexers import PythonLexer
 from pygments.formatters import HtmlFormatter
 from weasyprint import HTML, CSS
-import os
 
-diretorio = '/home/michel/Documentos/create_doc_dit/templates'
+# --- CONFIGURAÇÕES ---
+PASTAS = ['doc', 'html', 'notebooks', 'pdf', 'scripts']
+CSS_STYLE = """
+pre {
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-all !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  font-size: 9pt !important;
+  margin: 0;
+  padding: 0.5em;
+}
+body {
+  background: white !important;
+  margin: 1cm;
+}
+@page {
+  size: A4 portrait;
+  margin: 2cm;
+}
+div.highlight {
+  max-width: 100% !important;
+  overflow-x: auto;
+}
+"""
+# ----------------------
 
-arquivos_py = [f for f in os.listdir(diretorio) if f.endswith('.ipynb') and os.path.isfile(os.path.join(diretorio, f))]
+def instalar_gtk_local():
+    base_dir = Path(__file__).resolve().parent
+    instalador_path = base_dir / "lib" / "gtk-installer.exe"
+    if not instalador_path.exists():
+        print(f"[ERRO] Instalador não encontrado: {instalador_path}")
+        return
+    print(f"[INFO] Executando instalador GTK: {instalador_path}")
+    try:
+        subprocess.run([str(instalador_path)], check=True)
+        print("[OK] Instalação concluída! Reinicie o terminal.")
+    except subprocess.CalledProcessError as e:
+        print(f"[ERRO] A instalação falhou: {e}")
 
+def verificar_e_instalar_gtk():
+    if platform.system() != "Windows":
+        return
+    print("[INFO] Verificando dependência GTK...")
+    lib = ctypes.util.find_library('gobject-2.0')
+    if lib:
+        print(f"[OK] GTK encontrado: {lib}")
+    else:
+        print("[AVISO] GTK não encontrado. Tentando instalação.")
+        instalar_gtk_local()
 
-for arquivo in arquivos_py:
-    input_path = f'templates/{arquivo}'
-    arquivo = arquivo.split('.')[0]
-    output_html_dir = '/home/michel/Documentos/create_doc_dit/html'
-    output_pdf_dir = '/home/michel/Documentos/create_doc_dit/pdf'
+def criar_pastas(base_dir: Path):
+    for pasta in PASTAS:
+        dir_path = base_dir / pasta
+        if not dir_path.exists():
+            dir_path.mkdir(parents=True)
+            print(f"[+] Criada pasta: {dir_path}")
+        else:
+            print(f"[=] Pasta já existe: {dir_path}")
 
-    output_html = os.path.join(output_html_dir, f'{arquivo}.html')
-    output_pdf = os.path.join(output_pdf_dir, f'{arquivo}.pdf')
-    temp_css_path = os.path.join(output_html_dir, f'{arquivo}.css')
+def converter_para_pdf(arquivo_path: Path, base_dir: Path):
+    nome_arquivo = arquivo_path.stem
+    input_path = arquivo_path
+    output_html = base_dir / "html" / f"{nome_arquivo}.html"
+    output_pdf = base_dir / "pdf" / f"{nome_arquivo}.pdf"
+    temp_css_path = base_dir / "html" / f"{nome_arquivo}.css"
 
-    os.makedirs(output_html_dir, exist_ok=True)
-    os.makedirs(output_pdf_dir, exist_ok=True)
-
-    with open(input_path, 'r', encoding='utf-8') as f:
+    # Lê o conteúdo
+    with input_path.open("r", encoding="utf-8") as f:
         code = f.read()
 
-    cssstyles = """
-    pre {
-    white-space: pre-wrap !important;
-    word-wrap: break-word !important;
-    overflow-wrap: anywhere !important;
-    word-break: break-all !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-    font-size: 9pt !important;
-    margin: 0;
-    padding: 0.5em;
-    }
-
-    body {
-    background: white !important;
-    margin: 1cm;
-    }
-
-    @page {
-    size: A4 portrait;
-    margin: 2cm;
-    }
-
-    div.highlight {
-    max-width: 100% !important;
-    overflow-x: auto;
-    }
-    """
-
-    # Gera o HTML com o CSS inline do pygments para estilos de syntax highlight
-    formatter = HtmlFormatter(full=True, style='friendly', cssstyles="pre { white-space: pre-wrap !important; }")
+    formatter = HtmlFormatter(full=True, style="friendly")
     html_code = highlight(code, PythonLexer(), formatter)
 
-    # Escreve o HTML em arquivo
-    with open(output_html, 'w', encoding='utf-8') as f:
+    with output_html.open("w", encoding="utf-8") as f:
         f.write(html_code)
 
-    # Salva o CSS customizado para usar no PDF
-    with open(temp_css_path, 'w', encoding='utf-8') as f:
-        f.write(cssstyles)
+    with temp_css_path.open("w", encoding="utf-8") as f:
+        f.write(CSS_STYLE)
 
-    # Gera o PDF aplicando o CSS customizado para controle de quebra e layout
-    HTML(output_html).write_pdf(output_pdf, stylesheets=[CSS(temp_css_path)])
+    HTML(str(output_html)).write_pdf(str(output_pdf), stylesheets=[CSS(str(temp_css_path))])
+    print(f"[✓] PDF gerado: {output_pdf}")
 
-    print(f"PDF gerado em: {output_pdf}")
+def main():
+    base_dir = Path(__file__).resolve().parent
+    criar_pastas(base_dir)
+    verificar_e_instalar_gtk()
 
+    notebooks_dir = base_dir / "notebooks"
+    arquivos_py = [f for f in notebooks_dir.glob("*.py") if f.is_file()]
 
+    if not arquivos_py:
+        print("[!] Nenhum arquivo .py encontrado em /notebooks")
+        return
 
+    for arquivo in arquivos_py:
+        converter_para_pdf(arquivo, base_dir)
 
-
-
-
-
-
-
-
+if __name__ == "__main__":
+    main()
