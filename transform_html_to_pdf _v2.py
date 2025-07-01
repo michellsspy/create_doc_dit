@@ -6,6 +6,7 @@ import os
 import platform
 import subprocess
 import ctypes.util
+import requests
 from pathlib import Path
 from pygments import highlight
 from pygments.lexers import PythonLexer
@@ -13,7 +14,8 @@ from pygments.formatters import HtmlFormatter
 from weasyprint import HTML, CSS
 
 # --- CONFIGURAÇÕES ---
-PASTAS = ['doc', 'html', 'notebooks', 'pdf', 'scripts']
+PASTAS = ['doc', 'html', 'notebooks', 'pdf', '.info', '.log', '.exec']
+
 CSS_STYLE = """
 pre {
   white-space: pre-wrap !important;
@@ -40,10 +42,25 @@ div.highlight {
 }
 """
 # ----------------------
+def baixar_arquivo(url, nome_arquivo):      
+    try:
+        print('Requisitando o arquivo gtk3-runtime-3.24.31-2022-01-04-ts-win64.exe')
+        resposta = requests.get(url, stream=True)
+        resposta.raise_for_status()  # Levanta erro se a resposta for ruim (ex: 404, 500)
+
+        print(f'Salvando aquivo gtk em {nome_arquivo}')
+        with open(nome_arquivo, 'wb') as arquivo:
+            for bloco in resposta.iter_content(chunk_size=8192):
+                if bloco:
+                    arquivo.write(bloco)
+        print(f"Download concluído: {nome_arquivo}")
+    except requests.exceptions.RequestException as e:
+        print(f"Erro ao baixar o arquivo: {e}")
+
 
 def instalar_gtk_local():
     base_dir = Path(__file__).resolve().parent
-    instalador_path = base_dir / "lib" / "gtk-installer.exe"
+    instalador_path = base_dir / "exec" / "gtk-installer.exe"
     if not instalador_path.exists():
         print(f"[ERRO] Instalador não encontrado: {instalador_path}")
         return
@@ -58,9 +75,9 @@ def verificar_e_instalar_gtk():
     if platform.system() != "Windows":
         return
     print("[INFO] Verificando dependência GTK...")
-    lib = ctypes.util.find_library('gobject-2.0')
-    if lib:
-        print(f"[OK] GTK encontrado: {lib}")
+    exec = ctypes.util.find_library('gobject-2.0')
+    if exec:
+        print(f"[OK] GTK encontrado: {exec}")
     else:
         print("[AVISO] GTK não encontrado. Tentando instalação.")
         instalar_gtk_local()
@@ -99,14 +116,21 @@ def converter_para_pdf(arquivo_path: Path, base_dir: Path):
 
 def main():
     base_dir = Path(__file__).resolve().parent
+    url = 'https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases/download/2022-01-04/gtk3-runtime-3.24.31-2022-01-04-ts-win64.exe'
+    nome_arquivo = base_dir / ".exec" / "gtk3-runtime-3.24.30-2021-01-12-ts-win64.exe" 
+    
     criar_pastas(base_dir)
+    
+    if not nome_arquivo.exists():
+        baixar_arquivo(url, nome_arquivo)
+    
     verificar_e_instalar_gtk()
 
     notebooks_dir = base_dir / "notebooks"
-    arquivos_py = [f for f in notebooks_dir.glob("*.py") if f.is_file()]
+    arquivos_py = [f for f in notebooks_dir.glob("*.ipynb") if f.is_file()]
 
     if not arquivos_py:
-        print("[!] Nenhum arquivo .py encontrado em /notebooks")
+        print("[!] Nenhum arquivo .ipynb encontrado em /notebooks")
         return
 
     for arquivo in arquivos_py:
